@@ -67,6 +67,77 @@ jsconsole = (function(){
         },
         bindEvents : function(){
             this.addListener(pVars.cache.userInputBox, 'keyup', this.eventHandlers.userInputBoxHandler)
+        },
+        bindAutoSuggest : function(){
+            function AutoSuggestControl(oTextbox, oProvider) {
+                this.provider = oProvider;
+                this.textbox = oTextbox;
+                this.init();
+            }
+            AutoSuggestControl.prototype.selectRange = function (iStart, iLength) {
+                if (this.textbox.createTextRange) {
+                    var oRange = this.textbox.createTextRange();
+                    oRange.moveStart("character", iStart);
+                    oRange.moveEnd("character", iLength - this.textbox.value.length);
+                    oRange.select();
+                } else if (this.textbox.setSelectionRange) {
+                    this.textbox.setSelectionRange(iStart, iLength);
+                }
+
+                this.textbox.focus();
+            };
+            AutoSuggestControl.prototype.typeAhead = function (sSuggestion) {
+                if (this.textbox.createTextRange || this.textbox.setSelectionRange) {
+                    var iLen = this.textbox.value.length;
+                    this.textbox.value = sSuggestion;
+                    this.selectRange(iLen, sSuggestion.length);
+                }
+            };
+            AutoSuggestControl.prototype.autosuggest = function (aSuggestions) {
+
+                if (aSuggestions.length > 0) {
+                    this.typeAhead(aSuggestions[0]);
+                }
+            };
+            AutoSuggestControl.prototype.handleKeyUp = function (oEvent) {
+                var iKeyCode = oEvent.keyCode;
+
+                if (iKeyCode < 32 || (iKeyCode >= 33 && iKeyCode <= 46) || (iKeyCode >= 112 && iKeyCode <= 123)) {
+                    //ignore
+                } else {
+                    this.provider.requestSuggestions(this);
+                }
+            };
+            AutoSuggestControl.prototype.init = function () {
+                var oThis = this;
+                this.textbox.onkeyup = function (oEvent) {
+                    if (!oEvent) {
+                        oEvent = window.event;
+                    }
+                    oThis.handleKeyUp(oEvent);
+                };
+            };
+            function Suggestions() {
+                this.suggestions = [];
+                for(var i in window){
+                    this.suggestions.push(i);
+                }
+            }
+            Suggestions.prototype.requestSuggestions = function (oAutoSuggestControl) {
+                var aSuggestions = [];
+                var sTextboxValue = oAutoSuggestControl.textbox.value;
+
+                if (sTextboxValue.length > 0){
+                    for (var i=0; i < this.suggestions.length; i++) {
+                        if (this.suggestions[i].indexOf(sTextboxValue) == 0) {
+                            aSuggestions.push(this.suggestions[i]);
+                        }
+                    }
+                    oAutoSuggestControl.autosuggest(aSuggestions);
+                }
+            };
+            new AutoSuggestControl(pVars.cache.userInputBox, new Suggestions());
+
         }
     };
     return {
@@ -79,6 +150,7 @@ jsconsole = (function(){
             }
             pVars.cache.userInputBox.focus();
             pFuncs.bindEvents();
+            pFuncs.bindAutoSuggest();
         }
     }
 })();
